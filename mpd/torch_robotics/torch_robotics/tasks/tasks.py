@@ -362,17 +362,22 @@ class PlanningTask(Task):
             if filter_joint_limits_vel_acc:
                 if self.robot.dq_max is not None:
                     trajs_valid_tmp_velocity = self.get_velocity(trajs_valid_tmp)
-                    check_list.extend(
-                        [trajs_valid_tmp_velocity >= -self.robot.dq_max, trajs_valid_tmp_velocity <= self.robot.dq_max]
-                    )
+                    if trajs_valid_tmp_velocity is not None:
+                        check_list.extend(
+                            [
+                                trajs_valid_tmp_velocity >= -self.robot.dq_max,
+                                trajs_valid_tmp_velocity <= self.robot.dq_max,
+                            ]
+                        )
                 if self.robot.ddq_max is not None:
                     trajs_valid_tmp_acceleration = self.get_acceleration(trajs_valid_tmp)
-                    check_list.extend(
-                        [
-                            trajs_valid_tmp_acceleration >= -self.robot.ddq_max,
-                            trajs_valid_tmp_acceleration <= self.robot.ddq_max,
-                        ]
-                    )
+                    if trajs_valid_tmp_acceleration is not None:
+                        check_list.extend(
+                            [
+                                trajs_valid_tmp_acceleration >= -self.robot.ddq_max,
+                                trajs_valid_tmp_acceleration <= self.robot.ddq_max,
+                            ]
+                        )
 
             check_joint_limits = functools.reduce(torch.logical_and, check_list)
             trajs_valid_inside_joint_limits_idxs = check_joint_limits.all(dim=-1).all(dim=-1)

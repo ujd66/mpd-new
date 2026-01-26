@@ -1,3 +1,17 @@
+import sys
+import fractions
+import math
+
+# 猴子补丁 (Monkey Patch)：用于兼容性修复
+# 修复 networkx 2.2 在 Python 3.9+ 中使用已弃用的 fractions.gcd 的问题
+if not hasattr(fractions, "gcd"):
+    fractions.gcd = math.gcd
+
+from mpd.utils.patches import numpy_monkey_patch
+
+# 应用 numpy 的补丁，解决版本兼容性问题
+numpy_monkey_patch()
+
 import isaacgym
 import argparse
 import glob

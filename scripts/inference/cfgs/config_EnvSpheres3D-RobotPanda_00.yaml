@@ -1,88 +1,165 @@
-model_dir_ddpm_bspline: '${HOME}/Projects/MotionPlanningDiffusion/mpd-splines/data_trained_models/launch_train_diffusion_models-v04_2024-09-18_08-12-54/generative_model_class___GaussianDiffusionModel/dataset_subdir___EnvSpheres3D-RobotPanda-joint_joint-one-RRTConnect/dataset_file_merged___dataset_merged_doubled.hdf5/context_ee_goal_pose___True/unet_input_dim___32/unet_dim_mults_option___1/context_q_out_dim___128/context_ee_goal_pose_out_dim___128/context_combined_out_dim___128/bspline_num_control_points_desired___24/parametric_trajectory_class___ParametricTrajectoryBspline/0'
+# ---------------------------------------------------------------------------------------
+# 模型路径配置
+# ---------------------------------------------------------------------------------------
+# DDPM (Denoising Diffusion Probabilistic Models) - B样条参数化模型的路径
+# 这是主要使用的模型，通过扩散模型生成B样条控制点
+model_dir_ddpm_bspline: '/media/bochu/文档/data_public/data_trained_models/launch_train_diffusion_models-v04_2024-09-18_08-12-54/generative_model_class___GaussianDiffusionModel/dataset_subdir___EnvSpheres3D-RobotPanda-joint_joint-one-RRTConnect/dataset_file_merged___dataset_merged_doubled.hdf5/context_ee_goal_pose___True/unet_input_dim___32/unet_dim_mults_option___1/context_q_out_dim___128/context_ee_goal_pose_out_dim___128/context_combined_out_dim___128/bspline_num_control_points_desired___24/parametric_trajectory_class___ParametricTrajectoryBspline/0'
 
-model_dir_cvae_bspline: '${HOME}/Projects/MotionPlanningDiffusion/mpd-splines/data_trained_models/launch_train_cvae_models-v04_2024-09-18_08-14-47/generative_model_class___CVAEModel/dataset_subdir___EnvSpheres3D-RobotPanda-joint_joint-one-RRTConnect/dataset_file_merged___dataset_merged_doubled.hdf5/context_ee_goal_pose___True/unet_input_dim___32/unet_dim_mults_option___1/context_q_out_dim___128/context_ee_goal_pose_out_dim___128/context_combined_out_dim___128/bspline_num_control_points_desired___24/parametric_trajectory_class___ParametricTrajectoryBspline/0'
+# CVAE (Conditional Variational Autoencoder) 模型路径 (备用)
+model_dir_cvae_bspline: '/media/bochu/文档/data_public/data_trained_models/launch_train_cvae_models-v04_2024-09-18_08-14-47/generative_model_class___CVAEModel/dataset_subdir___EnvSpheres3D-RobotPanda-joint_joint-one-RRTConnect/dataset_file_merged___dataset_merged_doubled.hdf5/context_ee_goal_pose___True/unet_input_dim___32/unet_dim_mults_option___1/context_q_out_dim___128/context_ee_goal_pose_out_dim___128/context_combined_out_dim___128/bspline_num_control_points_desired___24/parametric_trajectory_class___ParametricTrajectoryBspline/0'
 
-model_dir_ddpm_waypoints: '${HOME}/Projects/MotionPlanningDiffusion/mpd-splines/data_trained_models/launch_train_diffusion_models-v04_2024-11-11_10-27-59/generative_model_class___GaussianDiffusionModel/dataset_subdir___EnvSpheres3D-RobotPanda-joint_joint-one-RRTConnect/dataset_file_merged___dataset_merged_doubled.hdf5/context_ee_goal_pose___True/unet_input_dim___32/unet_dim_mults_option___1/context_q_out_dim___128/context_ee_goal_pose_out_dim___128/context_combined_out_dim___128/bspline_num_control_points_desired___24/parametric_trajectory_class___ParametricTrajectoryWaypoints/0'
+# DDPM - Waypoints (航点) 参数化模型路径 (备用，直接预测路径点而非控制点)
+model_dir_ddpm_waypoints: '/media/bochu/文档/data_public/data_trained_models/launch_train_diffusion_models-v04_2024-11-11_10-27-59/generative_model_class___GaussianDiffusionModel/dataset_subdir___EnvSpheres3D-RobotPanda-joint_joint-one-RRTConnect/dataset_file_merged___dataset_merged_doubled.hdf5/context_ee_goal_pose___True/unet_input_dim___32/unet_dim_mults_option___1/context_q_out_dim___128/context_ee_goal_pose_out_dim___128/context_combined_out_dim___128/bspline_num_control_points_desired___24/parametric_trajectory_class___ParametricTrajectoryWaypoints/0'
 
 
-model_selection: 'bspline'  # 'bspline', 'waypoints'
+# 模型选择开关：决定使用上述哪种模型
+model_selection: 'bspline'  # 选项: 'bspline' (推荐, 更平滑), 'waypoints'
 
 #######################################################################################################################
-# environment options
+# 环境选项 (Environment Options)
 
-min_distance_q_pos_start_goal: 3.5  # minimum distance between start and goal configurations np.sqrt(7*2*(np.pi/2)**2)=5.88
+# 起始点和目标点之间的最小距离
+# 如果采样到的起点和目标太近，任务就太简单了，需要重新采样
+# 计算公式参考: np.sqrt(7*2*(np.pi/2)**2)=5.88 (基于关节角度空间)
+min_distance_q_pos_start_goal: 3.5
 
+# 替换环境 ID (用于在不重新训练模型的情况下测试新环境)
+# 设为 null 使用模型训练时原本的环境
 env_id_replace: null
 #env_id_replace: 'EnvSpheres3DExtraObjectsV00'
 
+# 抓取的物体 (通常为 null，除非是操作任务)
 grasped_object: null
 
-# collision avoidance/checking options
-# extra margin for object collision cost (sdf is clamped if it is greater than this value)
-# 0.02 for 2D tasks, 0.05 for panda tasks
+# 环境参数 kwargs
+# 绕 Z 轴旋转的角度 (度)，用于数据增强或改变测试视角
+rotation_z_axis_deg: 0.0
+
+# 碰撞检测选项 (Collision Checking)
+# 物体碰撞成本的额外余量 (Extra Margin)
+# 如果距离小于这个值，也会产生排斥成本。就像给障碍物穿了一层“厚衣服”，让机器人离远点。
+# 2D 任务通常用 0.02, Panda 机器人通常用 0.05
 obstacle_cutoff_margin_extra: 0.05
-# Points whose distance to the objects is less than this margin are considered in collision
+
+# 密集碰撞检测的余量
+# 如果点到物体的距离小于此值，则被视为碰撞
 margin_for_dense_collision_checking:  0.0
 
 #######################################################################################################################
-# task options
+# 任务选项 (Task Options)
 
-num_T_pts: 128  # number of time points in the trajectory (> 128 for smoother results)
-trajectory_duration: 10.0  # seconds
+# 轨迹的时间点数量
+# 数量越多，轨迹越精细，但计算量越大
+num_T_pts: 128  # 建议 > 128 以获得更平滑的结果
+
+# 轨迹总时长 (秒)
+# 机器人在多少秒内完成动作。这影响速度和加速度的计算。
+trajectory_duration: 10.0
+
+# 时间相位类
+# 决定时间是如何映射到轨迹进度的。
+# 'PhaseTimeLinear': 匀速推进
+# 'PhaseTimeSigmoid': S型曲线，起步慢、中间快、结束慢 (更自然)
 phase_time_class: 'PhaseTimeLinear'  # PhaseTimeLinear, PhaseTimeSigmoid
 #phase_time_class: 'PhaseTimeSigmoid'  # PhaseTimeLinear, PhaseTimeSigmoid
 
+# 是否分层投影梯度 (高级选项，一般为 false)
 project_gradient_hierarchy: false  # project the gradients hierarchically
 
+# 成本权重配置 (Costs)
+# 定义了在优化过程中，各项指标的重要性
 # if project_gradient_hierarchy is true, the cost/gradient hierarchy is defined from top to bottom
 costs:
+  # 避障成本 (权重最高，首要任务)
   CostTaskSpaceCollisionObjects:
     weight: 10.0
     use_only_on_extra_objects: false
+  # 自碰撞成本 (机器人不打架)
   CostTaskSpaceCollisionSelf:
     weight: 1.0
+  # 关节限位成本 (不要扭断胳膊)
   CostJointSpaceJointLimits:
     weight: 1.0
+  # 目标位置成本 (手要伸对地方)
   CostTaskSpaceEEGoalPose:
     weight: 1.0
+  # 关节速度成本 (动作不要太快)
   CostJointSpaceVelocity:
     weight: 0.01
+  # 关节加速度成本 (动作不要太猛/抖动)
   CostJointSpaceAcceleration:
     weight: 0.001
 
 
+# 轨迹采样数量 (Batch Size)
+# 一次推理生成多少条候选路径。越多越容易找到好结果，但越慢。
 n_trajectory_samples: 100  # batch size for sampling
 
+# 最佳轨迹选择标准
+# 从上面的 100 条里选哪条？这里选的是“路径最短”的那条。
 best_trajectory_selection: 'shortest_path_length'
 
 #######################################################################################################################
-# Planner options
+# 规划器选项 (Planner Options)
 
-planner_alg: 'mpd'  # diffusion_prior, diffusion_prior_then_guide, mpd, gp_prior_then_guide, knn_prior_then_guide, cvae, cvae_prior_then_guide
+# 规划算法选择
+planner_alg: 'mpd'  # 核心算法: Motion Planning Diffuser (MPD)
+# planner_alg: 'mpd'  # diffusion_prior, diffusion_prior_then_guide, mpd, gp_prior_then_guide, knn_prior_then_guide, cvae, cvae_prior_then_guide
 
-diffusion_sampling_method: 'ddim'  # ddim, ddpm (not tuned)
+# 扩散模型采样方法
+diffusion_sampling_method: 'ddim'  # 推荐 'ddim' (快), 'ddpm' (慢)
 
+# 是否使用重建的 x 进行成本计算 (一般 false)
 compute_costs_with_xrecon: false
 
+# 无噪声扩散步数 (通常为 0)
 n_diffusion_steps_without_noise: 0
 
+# 额外的运动规划梯度步数 (收尾优化)
 extra_mp_steps: 0  # number of extra motion planning gradient steps
 
-# ddim options
+# DDIM (Denoising Diffusion Implicit Models) 详细配置
 ddim:
+  # 在生成过程的哪个阶段开始介入引导 (Guidance)
+  # 0.3 表示在最后 30% 的去噪步骤中加入避障引导。
+  #如果太早介入，可能会破坏生成的结构；太晚介入，可能来不及避障。
   t_start_guide_steps_fraction: 0.3
+  
+  # DDIM 的总采样步数 (去噪步数)
+  # 越小越快，但质量可能下降。15 是个平衡值。
   ddim_sampling_timesteps: 15
+  
+  # DDIM 随机性系数 (eta)
+  # 0.0 = 确定性 (每次结果一样)
+  # 1.0 = DDPM (完全随机)
+  # 0.5 = 折中
   ddim_eta: 0.5  # 0.0 for ddim, 1.0 for ddpm
-  ddim_skip_type: 'quadratic'  # 'uniform', 'quadratic', 'exponential'
+  
+  # 步长跳过类型
+  ddim_skip_type: 'quadratic'  # 'uniform'(均匀), 'quadratic'(二次方, 推荐), 'exponential'(指数)
+  
+  # 梯度缩放比例
   ddim_scale_grad_prior: 0.25
+  
+  # 引导步数 (Guide Steps)
+  # 在每一步去噪中，执行几次梯度下降来修补路径。
+  # 增加此值能显著提高避障成功率，但会变慢。
   n_guide_steps: 4
+  
+  # 引导的学习率 (修补力度)
   guide_lr: 1.0
+  
+  # 最大扰动限制
+  # 防止引导把路径改得面目全非
   max_perturb_x: 0.15  # maximum perturbation from the diffusion mean during guide steps
+  
+  # 梯度裁剪 (防止梯度爆炸)
   clip_grad: true
-  clip_grad_rule: 'value'  # 'norm', 'value'
+  clip_grad_rule: 'value'  # 'norm'(范数), 'value'(数值)
   max_grad_norm: 1.  # clip the norm of the control point gradients
   max_grad_value: 1.  # clip the control point gradients
 
+# 其他算法的配置备份 (用于引用 &repl)
 # diffusion_prior_then_guide options
 diffusion_prior_then_guide:  &repl
   n_guide_steps: 12  # the same number of guide steps as used in MPD with DDIM
@@ -106,6 +183,7 @@ ddpm:
   max_grad_norm: 1.  # clip the norm of the control point gradients
   max_grad_value: 1.  # clip the control point gradients
 
+# 以下算法复用上面的 &repl 配置
 gp_prior_then_guide:
   <<: *repl
 

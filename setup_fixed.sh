@@ -6,12 +6,6 @@ eval "$(~/miniconda3/bin/conda shell.bash hook)"
 
 CONDA_ENV_NAME="mpd-splines-public"
 
-# check if a conda environment with the same name already exists, if yes remove it
-if conda env list | grep -q "${CONDA_ENV_NAME}"; then
-  echo "Removing existing conda environment: ${CONDA_ENV_NAME}"
-  conda env remove -n "${CONDA_ENV_NAME}" --yes
-fi
-
 THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 DEPS_DIR="${THIS_DIR}/deps"
@@ -26,8 +20,19 @@ conda update -n base conda
 
 conda env create -f environment.yml
 
-conda env config vars set CUDA_HOME=""
+# Activate the environment first
 conda activate ${CONDA_ENV_NAME}
+
+# Set CUDA_HOME after activation
+conda env config vars set -n ${CONDA_ENV_NAME} CUDA_HOME=""
+
+# Re-activate to apply the environment variable
+conda deactivate
+conda activate ${CONDA_ENV_NAME}
+
+# Verify we're in the right environment
+echo "Using Python: $(which python)"
+echo "Python version: $(python --version)"
 
 echo "-------> Installing dependencies"
 cd "${DEPS_DIR}"/experiment_launcher && pip install -e .
@@ -37,20 +42,26 @@ cd "${THIS_DIR}"/mpd/torch_robotics && pip install -e .
 cd "${THIS_DIR}"/mpd/motion_planning_baselines && pip install -e .
 
 echo "-------> Installing pybullet_ompl"
-conda activate ${CONDA_ENV_NAME}
 cd "${DEPS_DIR}"/pybullet_ompl || exit 1
-git clone https://github.com/ompl/ompl.git
+
+# Check if ompl directory already exists
+if [ -d "ompl" ]; then
+  echo "OMPL directory already exists, skipping clone"
+else
+  git clone https://github.com/ompl/ompl.git
+fi
+
 cd ompl || exit 1
 git checkout fca10b4bd4840856c7a9f50d1ee2688ba77e25aa
 mkdir -p build/Release
 cd build/Release || exit 1
-cmake -DCMAKE_DISABLE_FIND_PACKAGE_pypy=ON ../.. -DPYTHON_EXEC=${HOME}/miniconda3/envs/${CONDA_ENV_NAME}/bin/python
+cmake -DCMAKE_DISABLE_FIND_PACKAGE_pypy=ON ../.. -DPYTHON_EXEC=$(which python)
 make -j 32 update_bindings  # This step takes a lot of time.
 for _ in {1..5}; do make -j 32; done  # run multiple times to avoid errors
 cd ${DEPS_DIR}/pybullet_ompl && pip install -e .
 
 # Other necessary installs
-pip install numpy --upgrade
+pip install "numpy>=1.26.0,<2.0.0" --upgrade
 pip install networkx --upgrade
 
 # ncurses is causing an error using the linux command watch, htop, ...
