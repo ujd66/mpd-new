@@ -126,3 +126,68 @@ bash setup.sh
 ## 6. 常见问题
 *   **OMPL 编译失败**: 确保系统安装了必要的构建工具 (`cmake`, `make`, `gcc`)。如果是 SSH 权限问题，请参考之前的会话切换到 HTTPS。
 *   **Isaac Gym 缺失**: 这是一个闭源库，必须从 NVIDIA官网下载并解压到指定位置。
+
+## 7. 训练指标与 Loss 详解
+
+在 WandB 或训练日志中，您会看到一系列关键指标。以下详解结合了代码实现逻辑 (`mpd/models/diffusion_models/` 和 `mpd/torch_robotics/tasks/`)。
+
+### 7.1 损失函数 (Loss Functions)
+
+所有的 Loss 本质上都是衡量模型**“去噪能力”**的指标。
+
+*   **代码位置**: `mpd/models/diffusion_models/helpers.py` (Class `WeightedL2`)
+*   **核心逻辑**: `diffusion_model_base.py` -> `p_losses` 函数
+
+*   **计算公式 (均方误差 MSE)**:
+    $$ L = \frac{1}{N} \sum (\mathbf{\epsilon} - \mathbf{\epsilon}_\theta(\mathbf{x}_t, t))^2 $$
+    我们在比较两个**三维张量**（`Batch_Size` x `Control_Points` x `Joints`）之间的差异。
+    *   $\mathbf{\epsilon}$ (**Targets/真实值**): 也就是代码中的 `noise`。我们在训练时人为添加到轨迹中的**高斯噪声 (Ground Truth Noise)**。
+    *   $\mathbf{\epsilon}_\theta$ (**Predictions/预测值**): 也就是代码中的 `x_recon` (当 `predict_epsilon=True` 时)。模型接收带噪轨迹后，预测出的**噪声分布**。
+    *   **直观理解**: 就像给一段清晰的录音加上电流声（加噪），然后让模型把电流声分离出来（预测噪声）。分离得越干净，Loss 越低。
+
+*   **三个 Loss 的区别**:
+    1.  **`diffusion_loss`**: **“每道练习题的扣分”**。实时监控当前训练 Batch 的去噪误差。
+    2.  **`total_loss`**: **“本次作业的总扣分”**。在单任务训练中，它完全等同于 `diffusion_loss`。
+    3.  **`VALIDATION total_loss`** (至关重要): **“模拟考试的扣分”**。
+        *   它使用模型**从未见过**的验证集数据进行测试。
+        *   **如何判断拟合**:
+            *   若 `Train Loss` 低且 `Val Loss` 也低 -> **真学霸 (完美拟合)**。
+            *   若 `Train Loss` 低但 `Val Loss` 高 -> **死记硬背 (过拟合)**。
+
+### 7.2 生成质量指标 (Validation Metrics)
+
+这些指标衡量生成的轨迹是否真正可用。
+**注意：计算这些指标时，模型会一次性生成约 250 条轨迹（25条/任务 × 10个任务）进行统计。**
+
+*   **代码位置**: `mpd/summaries/summary_trajectory_generation.py` -> `summary_fn`
+*   **核心实现**: `mpd/torch_robotics/torch_robotics/tasks/tasks.py` (Class `PlanningTask`)
+
+#### 1. `VALIDATION percentage free trajs` (无碰撞比例)
+*   **别名**: **“考试不撞车率”**
+*   **代码对应**: `PlanningTask.compute_fraction_valid_trajs`
+*   **计算逻辑**: **一票否决制**。
+    *   代码调用 `get_trajs_unvalid_and_valid`，检查轨迹上的每一个点（包括插值点）。
+    *   判定标准：
+        1.  **碰撞检测**: `torch.logical_not(trajs_waypoints_collisions).all(dim=-1)` —— 所有时间步都不允许碰撞。
+        2.  **关节限位**: `(position >= q_min) & (position <= q_max)` —— 所有关节角度必须在物理限制内。
+    *   **公式**: 
+        $$ \text{FreeRate} = \frac{\text{Count}(\text{Valid Trajectories})}{\text{Total Trajectories} (250)} $$
+*   **趋势**: 通常会剧烈震荡（0.2 - 0.8），这很正常，反映了验证集中不同任务的难度差异。
+
+#### 2. `VALIDATION percentage collision intensity` (碰撞强度)
+*   **别名**: **“事故严重程度”**
+*   **代码对应**: `PlanningTask.compute_collision_intensity_trajs`
+*   **计算逻辑**: **按点计费**。
+    *   它不关心整条轨迹是否作废，只关心有多少个时间点发生了碰撞。
+    *   **公式**:
+        $$ \text{Intensity} = \frac{\text{Count}(\text{Collision Points})}{\text{Count}(\text{All Points in All Trajectories})} $$
+*   **意义**: 即使 `Free Trajs` 很低，如果这个值也很低（如 0.05），说明大部分轨迹只是轻微擦边，很容易修复。
+
+#### 3. `VALIDATION success` (成功率)
+*   **别名**: **“任务完成率” (兜底能力)**
+*   **代码对应**: `PlanningTask.compute_success_valid_trajs`
+*   **计算逻辑**: **只要有一条能用就行**。
+    *   代码逻辑：`if trajs_valid.nelement() >= 1: return 1`
+    *   只要从生成的 250 条候选轨迹里挑出**至少 1 条**满足上述 `Free Trajs` 标准的轨迹，该任务就被判定为成功。
+*   **公式**: 这是一个二值指标 (0 或 1)。WandB 上显示的是多个验证 Batch 的平均值。
+*   **意义**: 如果达到 1.0，说明模型非常可靠，无论遇到什么任务，总能生成可行的解决方案。这是部署模型时最重要的信心指标。

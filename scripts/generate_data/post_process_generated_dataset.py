@@ -12,7 +12,7 @@ from mpd.utils.patches import numpy_monkey_patch
 # 应用 numpy 的补丁，解决版本兼容性问题
 numpy_monkey_patch()
 
-import isaacgym
+# import isaacgym
 import argparse
 import glob
 import os.path

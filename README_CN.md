@@ -61,6 +61,27 @@ ln -s data_public/data_trajectories data_trajectories
 ln -s data_public/data_trained_models data_trained_models
 ```
 
+### Rizon10s 数据集和模型位置
+
+本项目的资源组织在以下位置：
+
+```
+/media/bochu/文档/data_public/
+├── data_trajectories/
+│   └── EnvSpheres3D-RobotRizon10s-joint_joint-one-RRTConnect/
+│       ├── dataset_merged.hdf5           # 原始合并数据 (~480K 轨迹)
+│       ├── dataset_merged_doubled.hdf5   # 翻倍后数据 (~960K 轨迹)
+│       └── args.yaml                     # 数据集元信息
+└── data_trained_models/
+    └── rizon10s_diffusion_500k/          # 训练好的模型目录
+        ├── checkpoints/                  # 所有训练检查点
+        │   ├── ema_model__iter_500000.pth
+        │   └── model__iter_500000.pth
+        ├── args.yaml                     # 训练参数
+        └── train_subset_indices.pt       # 训练集索引
+```
+
+
 
 ---
 ## 使用预训练模型进行推理
@@ -129,26 +150,85 @@ python train.py
 要并行训练多个模型，请使用 `launch_train_*` 文件。
 
 
+
 ---
-## 引用
 
-如果您使用了我们的工作或代码库，请引用我们的文章：
-```latex
-@article{carvalho2025motion,
-  title={Motion planning diffusion: Learning and adapting robot motion planning with diffusion models},
-  author={Carvalho, Jo{\~a}o and Le, An T and Kicki, Piotr and Koert, Dorothea and Peters, Jan},
-  journal={IEEE Transactions on Robotics},
-  year={2025},
-  publisher={IEEE}
-}
+---
+## Rizon10s 实施流程 (Step-by-Step)
 
-@inproceedings{carvalho2023motion,
-  title={Motion planning diffusion: Learning and planning of robot motions with diffusion models},
-  author={Carvalho, Jo{\~a}o and Le, An T and Baierl, Mark and Koert, Dorothea and Peters, Jan},
-  booktitle={IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
-  year={2023}
-}
+本节提供从零开始训练 Flexiv Rizon10s 机器人的完整操作指令。
+
+### 1. 环境准备 (Environment Setup)
+
+在开始任何操作前，请务必设置环境变量：
+
+```bash
+cd /home/bochu/code/mpd/mpd-splines-public
+source set_env_variables.sh
+conda activate mpd-splines-public
 ```
+
+### 2. 数据生成 (Data Generation)
+
+生成 100 万条原始轨迹数据。
+
+```bash
+# 并行生成轨迹 (预计 2-4 小时)
+python scripts/generate_data/launch_rizon10s_million.py
+```
+
+### 3. 数据处理 (Data Processing)
+
+对生成的数据进行合并、翻倍增强，并链接到标准目录。
+
+```bash
+# 1. 合并散落的数据批次
+python scripts/generate_data/post_process_generated_dataset.py \
+  --data_dir data/rizon/EnvSpheres3D-RobotRizon10s-joint_joint-one-RRTConnect
+
+# 2. 翻转轨迹以使数据集翻倍
+python scripts/generate_data/flip_solution_paths.py \
+  --data_dir data/rizon/EnvSpheres3D-RobotRizon10s-joint_joint-one-RRTConnect
+
+# 3. 创建数据链接 (指向 data_trajectories)
+ln -sf /media/bochu/文档/data_public/data_trajectories/EnvSpheres3D-RobotRizon10s-joint_joint-one-RRTConnect data_trajectories/
+```
+
+### 4. 模型训练 (Model Training)
+
+使用处理好的数据训练扩散模型。
+
+```bash
+cd scripts/train
+python train.py \
+  --dataset_subdir EnvSpheres3D-RobotRizon10s-joint_joint-one-RRTConnect \
+  --dataset_file_merged dataset_merged_doubled.hdf5 \
+  --debug False \
+  --num_train_steps 500000 \
+  --batch_size 256 \
+  --steps_til_summary 10000 \
+  --steps_til_ckpt 10000 \
+  --wandb_mode online \
+  --wandb_entity ren-qing-east-china-university-of-science-and-technology \
+  --wandb_project rizon10s_mpd_training
+```
+
+> **存储建议**: 训练完成后，建议将模型移动到 `/media/bochu/文档/data_public/data_trained_models/`。
+
+### 5. 推理验证 (Inference)
+
+加载训练好的模型进行运动规划测试。
+
+```bash
+cd scripts/inference
+# 确保 config_EnvSpheres3D-RobotRizon10s_00.yaml 中的 model_dir 指向了正确的模型路径
+python inference.py \
+  --cfg_inference_path ./cfgs/config_EnvSpheres3D-RobotRizon10s_00.yaml \
+  --n_start_goal_states 10 \
+  --render_pybullet True \
+  --device cuda:0
+```
+---
 
 
 ---

@@ -51,8 +51,20 @@ def create_doubled_dataset(f_path):
 
 if __name__ == "__main__":
     # create datasets in parallel with joblib
-    PATH_TO_DATASETS = "/home/carvalho/Projects/MotionPlanningDiffusion/mpd-splines/data_trajectories/EnvEmpty2D-RobotPointMass2D-joint_joint-many-GPPrior/**/*dataset_merged.hdf5"
-    N_JOBS = 5
+    # Rizon10s 数据集路径
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Flip solution paths to double the dataset")
+    parser.add_argument(
+        "--data_dir",
+        type=str,
+        default="./data/rizon/EnvSpheres3D-RobotRizon10s-joint_joint-one-RRTConnect",
+        help="Directory containing dataset_merged.hdf5",
+    )
+    cli_args = parser.parse_args()
+
+    PATH_TO_DATASETS = f"{cli_args.data_dir}/**/dataset_merged.hdf5"
+    N_JOBS = 1  # 单个文件不需要并行
     Parallel(n_jobs=N_JOBS)(
         delayed(create_doubled_dataset)(f_path) for f_path in glob.glob(PATH_TO_DATASETS, recursive=True)
     )

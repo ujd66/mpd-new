@@ -44,6 +44,11 @@ from scipy.spatial.transform import Rotation
 
 
 class GenerateDataOMPL:
+    """
+    基于 OMPL 和 PyBullet 的数据生成类。
+    负责初始化环境、机器人，设置障碍物。由于 OMPL 需要碰撞检测，这里使用了 PyBullet 作为物理引擎。
+    """
+
     def __init__(
         self,
         env_id,
@@ -59,8 +64,8 @@ class GenerateDataOMPL:
     ):
         self.tensor_args = tensor_args
 
-        # -------------------------------- Load env, robot, task ---------------------------------
-        # Environment
+        # -------------------------------- 加载环境、机器人和任务 ---------------------------------
+        # 加载环境 (Environment)
         if env_tr is not None:
             self.env_tr = deepcopy(env_tr)
         else:
@@ -80,14 +85,15 @@ class GenerateDataOMPL:
         # Setup pybullet_ompl
         self.obstacles = []
 
-        # setup pybullet client due to multi-threading
+        # 设置 pybullet 客户端，由于使用了多线程，每个实例需要独立的客户端
         self.pybullet_client = bullet_client.BulletClient(
             connection_mode=p.GUI if pybullet_mode == "GUI" else p.DIRECT, options=""
         )
         self.pybullet_client.setGravity(0, 0, 0.0)  # no gravity
         self.pybullet_client.setTimeStep(1.0 / 240.0)
 
-        # For compability, create a temporary file to store the robot urdf
+        # 为了兼容性，创建一个临时文件来存储机器人 URDF
+        # 这是为了确保 PyBullet 能正确加载由 torch_robotics 修改过的 URDF（例如修改了路径）
         path = pathlib.Path(self.robot_tr.robot_urdf_file)
         robot_urdf_file_tmp = path.with_name(path.stem + f"-{os.getpid()}" + path.suffix).as_posix()
         robot_urdf_xmlstr = minidom.parseString(ET.tostring(self.robot_tr.robot_urdf_raw.to_xml())).toprettyxml(
@@ -126,6 +132,10 @@ class GenerateDataOMPL:
         self.obstacles = []
 
     def add_obstacles(self, default_height_2d=0.05):
+        """
+        将 torch_robotics 环境中的障碍物添加到 PyBullet 模拟环境中。
+        支持球体 (MultiSphereField) 和立方体 (MultiBoxField)。
+        """
         for obj_list, color in zip(
             [self.env_tr.get_obj_fixed_list(), self.env_tr.get_obj_extra_list()],
             [(220.0 / 255.0, 220.0 / 255.0, 220.0 / 255.0, 1.0), (1, 0, 0, 1)],
@@ -182,6 +192,10 @@ class GenerateDataOMPL:
         min_distance_q_pos_start_goal=0.0,
         debug=False,
     ):
+        """
+        获取有效的起始和目标状态 (关节位置)。
+        如果未提供具体的起始/目标位置，则在环境中随机采样无碰撞的配置。
+        """
         if q_pos_start is not None:
             assert self.pbompl_interface.is_state_valid(
                 q_pos_start, check_bounds=True
@@ -258,6 +272,10 @@ class GenerateDataOMPL:
         wait_time_after_visualization=4.0,
         debug=False,
     ):
+        """
+        执行路径规划任务，生成轨迹数据。
+        此数会尝试多次规划以生成指定数量的轨迹。
+        """
         assert max_tries >= num_trajectories, (
             f"max_tries must be greater than the number of desired trajectories."
             f" max_tries={max_tries} < num_trajectories={num_trajectories}"
@@ -286,6 +304,7 @@ class GenerateDataOMPL:
                 bspline_zero_acc_at_start_and_goal=bspline_zero_acc_at_start_and_goal,
                 debug=debug,
             )
+            # 记录规划时间
             planning_time = time.perf_counter() - s_time
             if debug:
                 print(f"planning time: {planning_time:.3f} s")
@@ -302,6 +321,7 @@ class GenerateDataOMPL:
                     self.pbompl_interface.execute(sol_path, sleep_time=duration_visualization / len(sol_path))
                     time.sleep(wait_time_after_visualization)
 
+            # 如果生成的轨迹数量达到了要求，则停止尝试
             if num_trajectories_generated >= num_trajectories:
                 break
 
@@ -346,7 +366,8 @@ def get_random_pose_from_region(pose_region):
 
 
 def get_random_ee_pose_from_cfg_file(env_id, robot_id, cfg_file_path):
-    # create a random start and goal end-effector pose based on a config file describing the target pose limits
+    # 根据配置文件创建一个随机的起始和目标末端执行器位姿
+    # 配置文件定义了目标位姿的区域 (pose regions)
     with open(cfg_file_path, "r") as f:
         cfg_ee = yaml.load(f, Loader=yaml.Loader)
 
@@ -455,16 +476,16 @@ def experiment(
     # robot_id: str = 'RobotPlanar2Link',
     # env_id: str = 'EnvPlanar4Link',
     # robot_id: str = 'RobotPlanar4Link',
-    # env_id: str = 'EnvSpheres3D',
+    env_id: str = "EnvSpheres3D",
     # env_id: str = 'EnvSpheres3DExtraObjectsV00',
     # env_id: str = 'EnvTableShelf',
     # env_id: str = 'EnvPilars3D',
+    # env_id: str = 'EnvWarehouse',
+    robot_id: str = "RobotRizon10s",
     # robot_id: str = 'RobotPanda',
-    env_id: str = "EnvWarehouse",
-    robot_id: str = "RobotPanda",
     ############################################################################
     start_task_id: int = 49400,
-    num_tasks: int = 5,
+    num_tasks: int = 50,
     num_trajectories_per_task: int = 1,
     ############################################################################
     sample_joint_position_goals_with_same_ee_pose: bool = False,
@@ -495,7 +516,7 @@ def experiment(
     #######################################
     n_parallel_jobs: int = 1,  # Set to 1 to debug with pybullet GUI
     # n_parallel_jobs: int = os.cpu_count(),
-    debug: bool = True,
+    debug: bool = False,
     #######################################
     # MANDATORY
     seed: int = int(time.time()),
@@ -504,6 +525,10 @@ def experiment(
     #######################################
     **kwargs,
 ):
+    """
+    主实验函数：配置并运行数据生成过程。
+    使用 experiment_launcher 来管理实验配置、参数解析和运行结果存储。
+    """
     fix_random_seed(seed)
 
     print(f"\n\n-------------------- Generating data --------------------")
@@ -517,7 +542,7 @@ def experiment(
     tensor_args = {"device": "cpu", "dtype": torch.float32}
 
     ####################################################################################################################
-    # Create the tasks - start and goal joint positions or end-effector poses
+    # 创建任务 - 定义起始和目标的关节位置或末端执行器位姿
     q_pos_start = None
     ee_pose_start = None
     q_pos_goal = None
@@ -536,7 +561,7 @@ def experiment(
         debug=debug,
     )
 
-    print("\nGenerating tasks...")
+    print("\nGenerating tasks... (生成任务中...)")
     task_id_l = []
     joint_position_start_l = []
     joint_position_goal_l = []
@@ -552,9 +577,9 @@ def experiment(
         # print(f'joint_position_goal: {joint_position_goal}')
         # print(f'ee_pose_target: {ee_pose_goal}')
 
-        # Sample start and goal states (joint positions or end-effector poses)
+        # 采样起始和目标状态 (关节位置或末端执行器位姿)
         try:
-            # IK might fail to find a solution
+            # IK (逆运动学) 可能会失败，因此需要捕获异常
             joint_position_start_l_tmp, joint_position_goal_l_tmp = generate_data_ompl_worker.get_start_and_goal_states(
                 q_pos_start=q_pos_start,
                 ee_pose_start=ee_pose_start,
@@ -579,8 +604,8 @@ def experiment(
     print(f"\n----------\nGenerated {len(task_id_l)}/{num_tasks} tasks successfully\n----------\n")
 
     ####################################################################################################################
-    # Generate data
-    # Generate data in parallel with joblib
+    # 生成数据
+    # 使用 joblib 进行并行数据生成
     with TimerCUDA() as t_generate_data:
         results_dict_l = Parallel(n_jobs=n_parallel_jobs)(
             delayed(generate_trajectories_run)(
@@ -645,7 +670,7 @@ def experiment(
         )
 
     ####################################################################################################################
-    # Merge results for hdf5 format
+    # 合并结果为 hdf5 格式
     results_dict = {}
     num_trajectories_generated = 0
     for results_dict_run in results_dict_l:
@@ -684,6 +709,7 @@ def experiment(
     )
 
     # save results to disk
+    # 将结果保存到磁盘
     hf = h5py.File(os.path.join(results_dir, "dataset.hdf5"), "w")
     for k, v in results_dict.items():
         hf.create_dataset(f"{k}", data=v, compression="gzip")

@@ -1,0 +1,162 @@
+# ---------------------------------------------------------------------------------------
+# Rizon10s 机器人模型路径配置
+# ---------------------------------------------------------------------------------------
+# DDPM (Denoising Diffusion Probabilistic Models) - B样条参数化模型的路径
+# 指向你刚刚训练完成的 Rizon10s 模型
+model_dir_ddpm_bspline: '/media/bochu/文档/data_public/data_trained_models/rizon10s_diffusion_500k'
+
+# CVAE 模型路径 (暂未训练，使用 DDPM)
+model_dir_cvae_bspline: null
+
+# Waypoints 模型路径 (暂未训练，使用 B-spline)
+model_dir_ddpm_waypoints: null
+
+# 模型选择开关：使用 B-spline 参数化
+model_selection: 'bspline'  # 'bspline' (推荐), 'waypoints'
+
+#######################################################################################################################
+# 环境选项 (Environment Options)
+
+# 起始点和目标点之间的最小距离
+# Rizon10s 是 7-DOF 机器人，类似 Panda
+min_distance_q_pos_start_goal: 3.5
+
+# 替换环境 ID (null = 使用训练时的环境)
+env_id_replace: null
+
+# 抓取的物体
+grasped_object: null
+
+# 环境旋转 (用于测试泛化性)
+rotation_z_axis_deg: 0.0
+
+# 碰撞检测选项
+obstacle_cutoff_margin_extra: 0.05  # Rizon10s 使用与 Panda 相同的设置
+margin_for_dense_collision_checking: 0.0
+
+#######################################################################################################################
+# 任务选项 (Task Options)
+
+# 轨迹的时间点数量
+num_T_pts: 128
+
+# 轨迹总时长 (秒)
+trajectory_duration: 10.0
+
+# 时间相位类
+phase_time_class: 'PhaseTimeLinear'  # PhaseTimeLinear, PhaseTimeSigmoid
+
+# 是否分层投影梯度
+project_gradient_hierarchy: false
+
+# 成本权重配置
+costs:
+  # 避障成本 (最重要)
+  CostTaskSpaceCollisionObjects:
+    weight: 10.0
+    use_only_on_extra_objects: false
+  # 自碰撞成本
+  CostTaskSpaceCollisionSelf:
+    weight: 1.0
+  # 关节限位成本
+  CostJointSpaceJointLimits:
+    weight: 1.0
+  # 末端执行器目标位置成本 (如果训练时使用了 ee_goal_pose)
+  CostTaskSpaceEEGoalPose:
+    weight: 1.0
+  # 关节速度成本
+  CostJointSpaceVelocity:
+    weight: 0.01
+  # 关节加速度成本
+  CostJointSpaceAcceleration:
+    weight: 0.001
+
+# 轨迹采样数量 (生成候选路径的数量)
+n_trajectory_samples: 100
+
+# 最佳轨迹选择标准
+best_trajectory_selection: 'shortest_path_length'
+
+#######################################################################################################################
+# 规划器选项 (Planner Options)
+
+# 规划算法选择
+planner_alg: 'mpd'  # Motion Planning Diffuser
+
+# 扩散模型采样方法
+diffusion_sampling_method: 'ddim'  # 'ddim' (快), 'ddpm' (慢)
+
+# 成本计算选项
+compute_costs_with_xrecon: false
+
+# 无噪声扩散步数
+n_diffusion_steps_without_noise: 0
+
+# 额外的运动规划梯度步数
+extra_mp_steps: 0
+
+# DDIM 详细配置
+ddim:
+  # 开始引导的时间点 (30% 处开始)
+  t_start_guide_steps_fraction: 0.3
+  
+  # DDIM 采样步数
+  ddim_sampling_timesteps: 15
+  
+  # DDIM 随机性系数
+  ddim_eta: 0.5  # 0.0 for ddim, 1.0 for ddpm
+  
+  # 步长跳过类型
+  ddim_skip_type: 'quadratic'  # 'uniform', 'quadratic', 'exponential'
+  
+  # 梯度缩放
+  ddim_scale_grad_prior: 0.25
+  
+  # 引导步数 (每步去噪中的优化迭代次数)
+  n_guide_steps: 4
+  
+  # 引导学习率
+  guide_lr: 1.0
+  
+  # 最大扰动限制
+  max_perturb_x: 0.15
+  
+  # 梯度裁剪
+  clip_grad: true
+  clip_grad_rule: 'value'  # 'norm', 'value'
+  max_grad_norm: 1.
+  max_grad_value: 1.
+
+# 其他算法配置 (备用)
+diffusion_prior_then_guide:  &repl
+  n_guide_steps: 12
+  guide_lr: 0.01
+  max_perturb_x: 0.15
+  clip_grad: true
+  clip_grad_rule: 'value'
+  max_grad_norm: 1.
+  max_grad_value: 1.
+
+ddpm:
+  t_start_guide_steps_fraction: 0.2
+  prior_weight_with_guide: 0.95
+  noise_std: 0.7
+  n_guide_steps: 2
+  guide_lr: 0.01
+  max_perturb_x: 0.15
+  clip_grad: true
+  clip_grad_rule: 'value'
+  max_grad_norm: 1.
+  max_grad_value: 1.
+
+gp_prior_then_guide:
+  <<: *repl
+
+knn_prior_then_guide:
+  <<: *repl
+
+cvae_prior_then_guide:
+  <<: *repl
+
+rrtconnect_then_guide:
+  <<: *repl

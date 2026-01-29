@@ -12,7 +12,7 @@ from mpd.utils.patches import numpy_monkey_patch
 # 应用 numpy 的补丁，解决版本兼容性问题
 numpy_monkey_patch()
 
-import isaacgym
+# import isaacgym  # 注释掉：训练不需要，且与 Python 3.9 不兼容
 
 import os
 
@@ -31,9 +31,10 @@ from torch_robotics.torch_utils.torch_utils import get_torch_device
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 
 
-os.environ["WANDB_API_KEY"] = "999"
-WANDB_MODE = "disabled"
-WANDB_ENTITY = "mpd-splines"
+# 从环境变量读取 WANDB_API_KEY（请先运行 wandb login 或设置环境变量）
+# os.environ["WANDB_API_KEY"] = "999"  # 已注释：请使用真实的 API Key
+WANDB_MODE = "disabled"  # 可通过命令行参数 --wandb_mode 覆盖
+WANDB_ENTITY = None  # 可通过命令行参数 --wandb_entity 指定你的 WandB 用户名
 DEBUG = True
 
 

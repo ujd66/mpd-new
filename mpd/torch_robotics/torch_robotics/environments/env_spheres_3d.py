@@ -71,14 +71,14 @@ class EnvSpheres3D(EnvBase):
             },
             stop_criteria=0.1,
         )
-        if isinstance(robot, tr_robots.RobotPanda):
+        if isinstance(robot, (tr_robots.RobotPanda, tr_robots.RobotRizon10s)):
             return params
         else:
             raise NotImplementedError
 
     def get_rrt_connect_params(self, robot=None):
         params = dict(n_iters=10000, step_size=torch.pi / 30, n_radius=torch.pi / 4, n_pre_samples=50000, max_time=180)
-        if isinstance(robot, tr_robots.RobotPanda):
+        if isinstance(robot, (tr_robots.RobotPanda, tr_robots.RobotRizon10s)):
             return params
         else:
             raise NotImplementedError
