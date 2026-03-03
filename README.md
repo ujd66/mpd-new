@@ -26,18 +26,10 @@
 
 克隆此仓库：
 ```bash
-mkdir -p ~/Projects/MotionPlanningDiffusion/
-cd ~/Projects/MotionPlanningDiffusion/
-git clone --recurse-submodules git@github.com:joaoamcarvalho/mpd-splines-public.git mpd-splines-public
+git clone --recurse-submodules https://github.com/ujd66/mpd-new.git
 cd mpd-splines-public
 ```
 
-下载 [IsaacGym Preview 4](https://developer.nvidia.com/isaac-gym) 并将其解压到 `deps/isaacgym` 目录下：
-```bash
-mv ~/Downloads/IsaacGym_Preview_4_Package.tar.gz ~/Projects/MotionPlanningDiffusion/mpd-splines-public/deps/
-cd ~/Projects/MotionPlanningDiffusion/mpd-splines-public/deps
-tar -xvf IsaacGym_Preview_4_Package.tar.gz
-```
 
 运行 bash 设置脚本以安装所有内容（这可能需要一段时间）：
 ```bash
@@ -47,7 +39,7 @@ bash setup.sh
 在运行任何脚本之前，请务必设置环境变量并激活 conda 环境：
 ```bash
 source set_env_variables.sh
-conda activate mpd-splines-public
+conda activate mpd-new
 ```
 
 ---
@@ -82,7 +74,6 @@ ln -s data_public/data_trained_models data_trained_models
 ```
 
 
-
 ---
 ## 使用预训练模型进行推理
 
@@ -95,12 +86,13 @@ python inference.py
 python inference.py --planner_alg rrtconnect_then_guide --n_trajectory_samples 1
 
 ```
-对比
+对比运行（同时记录日志）：
 
 ```bash
-source /home/bochu/code/mpd/mpd-splines-public/set_env_variables.sh && conda activate mpd-splines-public 
+source set_env_variables.sh && conda activate mpd-new
 
-python inference.py > mpd_results.log 2>&1 && python inference.py --planner_alg rrtconnect_then_guide --n_trajectory_samples 1 > hybrid_results.log 2>&1
+python inference.py > mpd_results.log 2>&1 && \
+python inference.py --planner_alg rrtconnect_then_guide --n_trajectory_samples 1 > hybrid_results.log 2>&1
 ```
 
 ---
@@ -152,8 +144,6 @@ python train.py
 
 
 ---
-
----
 ## Rizon10s 实施流程 (Step-by-Step)
 
 本节提供从零开始训练 Flexiv Rizon10s 机器人的完整操作指令。
@@ -163,9 +153,9 @@ python train.py
 在开始任何操作前，请务必设置环境变量：
 
 ```bash
-cd /home/bochu/code/mpd/mpd-splines-public
+cd mpd-splines-public
 source set_env_variables.sh
-conda activate mpd-splines-public
+conda activate mpd-new
 ```
 
 ### 2. 数据生成 (Data Generation)
@@ -190,8 +180,8 @@ python scripts/generate_data/post_process_generated_dataset.py \
 python scripts/generate_data/flip_solution_paths.py \
   --data_dir data/rizon/EnvSpheres3D-RobotRizon10s-joint_joint-one-RRTConnect
 
-# 3. 创建数据链接 (指向 data_trajectories)
-ln -sf /media/bochu/文档/data_public/data_trajectories/EnvSpheres3D-RobotRizon10s-joint_joint-one-RRTConnect data_trajectories/
+# 3. 创建数据链接 (指向 data_trajectories，将 <DATA_ROOT> 替换为实际路径)
+ln -sf <DATA_ROOT>/data_public/data_trajectories/EnvSpheres3D-RobotRizon10s-joint_joint-one-RRTConnect data_trajectories/
 ```
 
 ### 4. 模型训练 (Model Training)
