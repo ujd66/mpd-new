@@ -499,10 +499,10 @@ def experiment(
     # planner parameters
     # planner: str = "PRM",
     # planner: str = 'PRMstar',
-    planner: str = "RRTConnect",
+    # planner: str = "RRTConnect",
     # planner: str = 'RRTstar',
     # planner: str = 'BITstar',
-    # planner: str = 'AITstar',
+    planner: str = 'AITstar',
     planner_allowed_time: float = 10.0,
     # path simplification methods of OMPL
     simplify_path: bool = True,
@@ -516,7 +516,7 @@ def experiment(
     #######################################
     n_parallel_jobs: int = 1,  # Set to 1 to debug with pybullet GUI
     # n_parallel_jobs: int = os.cpu_count(),
-    debug: bool = False,
+    debug: bool = True,
     #######################################
     # MANDATORY
     seed: int = int(time.time()),

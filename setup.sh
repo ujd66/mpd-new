@@ -31,7 +31,6 @@ conda activate ${CONDA_ENV_NAME}
 
 echo "-------> Installing dependencies"
 cd "${DEPS_DIR}"/experiment_launcher && pip install -e .
-cd "${DEPS_DIR}"/isaacgym/python && pip install -e .
 cd "${DEPS_DIR}"/theseus/torchkin && pip install -e .
 cd "${THIS_DIR}"/mpd/torch_robotics && pip install -e .
 cd "${THIS_DIR}"/mpd/motion_planning_baselines && pip install -e .
