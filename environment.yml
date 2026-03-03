@@ -1,4 +1,4 @@
-name: mpd-splines-public
+name: mpd-new
 channels:
   - conda-forge
 dependencies:
